@@ -1,0 +1,50 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [created]
+
+permissions: write-all
+
+jobs:
+  build:
+    env:
+      APP_NAME: testapp
+    runs-on: ${{ matrix.image }}
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            image: ubuntu-20.04
+          - os: macos
+            image: macos-latest
+          - os: windows
+            image: windows-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync
+        run: uv sync
+
+      - name: Build Executable
+        run: |
+          uv run pyinstaller --name="${{ env.APP_NAME }}" --windowed --onedir main.py
+
+      - name: Archive Binaries
+        uses: thedoctor0/zip-release@0.7.5
+        with:
+          type: 'zip'
+          filename: release.zip
+          directory: 'dist/${{ env.APP_NAME }}'
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: 'dist/${{ env.APP_NAME }}/release.zip'
+          asset_name: ${{ env.APP_NAME }}-${{ matrix.os }}.zip
+          tag: ${{ github.ref }}
